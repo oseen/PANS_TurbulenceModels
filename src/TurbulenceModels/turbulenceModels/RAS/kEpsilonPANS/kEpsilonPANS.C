@@ -2,8 +2,11 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2011-2015 OpenFOAM Foundation
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2011-2017 OpenFOAM Foundation
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -41,6 +44,7 @@ void kEpsilonPANS<BasicTurbulenceModel>::correctNut()
 {
     this->nut_ = Cmu_*sqr(kU_)/epsilonU_;
     this->nut_.correctBoundaryConditions();
+    fv::options::New(this->mesh_).correct(this->nut_);
 
     BasicTurbulenceModel::correctNut();
 }
@@ -88,10 +92,9 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
     const transportModel& transport,
     const word& propertiesName,
     const word& type
-
 )
 :
-    eddyViscosity<RASModel<BasicTurbulenceModel> >
+    eddyViscosity<RASModel<BasicTurbulenceModel>>
     (
         type,
         alpha,
@@ -105,64 +108,58 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
 
     Cmu_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "Cmu",
             this->coeffDict_,
             0.09
         )
     ),
-
     C1_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "C1",
             this->coeffDict_,
             1.44
         )
     ),
-
     C2_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "C2",
             this->coeffDict_,
             1.92
         )
     ),
-
     C3_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "C3",
             this->coeffDict_,
             -0.33
         )
     ),
-
     sigmak_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "sigmak",
             this->coeffDict_,
             1.0
         )
     ),
-
     sigmaEps_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "sigmaEps",
             this->coeffDict_,
             1.3
         )
     ),
-
     fEpsilon_
     (
         dimensioned<scalar>::lookupOrAddToDict
@@ -172,7 +169,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
             1.0
         )
     ),
-
     uLim_
     (
         dimensioned<scalar>::lookupOrAddToDict
@@ -182,7 +178,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
             1.0
         )
     ),
-
     loLim_
     (
         dimensioned<scalar>::lookupOrAddToDict
@@ -192,7 +187,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
             0.1
         )
     ),
-
     fK_
     (
         IOobject
@@ -206,7 +200,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
         this->mesh_,
         dimensionedScalar("zero",loLim_)
     ),
-
     C2U
     (
         IOobject
@@ -217,7 +210,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
         ),
         C1_ + (fK_/fEpsilon_)*(C2_ - C1_)
     ),
-
     delta_
     (
         LESdelta::New
@@ -227,12 +219,11 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
             this->coeffDict_
         )
     ),
-
     k_
     (
         IOobject
         (
-            IOobject::groupName("k", U.group()),
+            IOobject::groupName("k", alphaRhoPhi.group()),
             this->runTime_.timeName(),
             this->mesh_,
             IOobject::MUST_READ,
@@ -240,7 +231,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
         ),
         this->mesh_
     ),
-
     kU_
     (
         IOobject
@@ -254,12 +244,11 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
         k_*fK_,
         k_.boundaryField().types()
     ),
-
     epsilon_
     (
         IOobject
         (
-            IOobject::groupName("epsilon", U.group()),
+            IOobject::groupName("epsilon", alphaRhoPhi.group()),
             this->runTime_.timeName(),
             this->mesh_,
             IOobject::MUST_READ,
@@ -267,7 +256,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
         ),
         this->mesh_
     ),
-
     epsilonU_
     (
         IOobject
@@ -287,7 +275,6 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
     bound(kU_, min(fK_)*this->kMin_);
     bound(epsilonU_, fEpsilon_*this->epsilonMin_);
 
-
     if (type == typeName)
     {
         this->printCoeffs(type);
@@ -296,12 +283,13 @@ kEpsilonPANS<BasicTurbulenceModel>::kEpsilonPANS
 }
 
 
+
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class BasicTurbulenceModel>
 bool kEpsilonPANS<BasicTurbulenceModel>::read()
 {
-    if (eddyViscosity<RASModel<BasicTurbulenceModel> >::read())
+    if (eddyViscosity<RASModel<BasicTurbulenceModel>>::read())
     {
         Cmu_.readIfPresent(this->coeffDict());
         C1_.readIfPresent(this->coeffDict());
@@ -312,7 +300,6 @@ bool kEpsilonPANS<BasicTurbulenceModel>::read()
         fEpsilon_.readIfPresent(this->coeffDict());
         uLim_.readIfPresent(this->coeffDict());
         loLim_.readIfPresent(this->coeffDict());
-
 
         return true;
     }
@@ -336,22 +323,24 @@ void kEpsilonPANS<BasicTurbulenceModel>::correct()
     const rhoField& rho = this->rho_;
     const surfaceScalarField& alphaRhoPhi = this->alphaRhoPhi_;
     const volVectorField& U = this->U_;
-    volScalarField& nut = this->nut_;
-    fv::options& fvOptions(fv::options::New(this->mesh_));
-    
-    eddyViscosity<RASModel<BasicTurbulenceModel> >::correct();
+    const volScalarField& nut = this->nut_;
 
-    volScalarField::Internal divU
+    fv::options& fvOptions(fv::options::New(this->mesh_));
+
+    eddyViscosity<RASModel<BasicTurbulenceModel>>::correct();
+
+    const volScalarField::Internal divU
     (
         fvc::div(fvc::absolute(this->phi(), U))().v()
     );
 
     tmp<volTensorField> tgradU = fvc::grad(U);
-    volScalarField::Internal G
+    const volScalarField::Internal GbyNu
     (
-        this->GName(),
-        nut.v()*(dev(twoSymm(tgradU().v())) && tgradU().v())
+        this->type() + ":GbyNu",
+        tgradU().v() && dev(twoSymm(tgradU().v()))
     );
+    const volScalarField::Internal G(this->GName(), nut()*GbyNu);
     tgradU.clear();
 
     // Update epsilon and G at the wall
@@ -377,7 +366,6 @@ void kEpsilonPANS<BasicTurbulenceModel>::correct()
     solve(epsUEqn);
     fvOptions.correct(epsilonU_);
     bound(epsilonU_, fEpsilon_*this->epsilonMin_);
-
 
     // Unresolved Turbulent kinetic energy equation
     tmp<fvScalarMatrix> kUEqn
@@ -425,7 +413,6 @@ void kEpsilonPANS<BasicTurbulenceModel>::correct()
     
     // update C2U
     C2U = C1_ + (fK_/fEpsilon_)*(C2_ - C1_);
-    
 }
 
 

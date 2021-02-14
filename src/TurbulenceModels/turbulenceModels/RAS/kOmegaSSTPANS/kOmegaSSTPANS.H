@@ -2,8 +2,11 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2015-2016 OpenFOAM Foundation
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2015-2016 OpenFOAM Foundation
+    Copyright (C) 2019 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -99,9 +102,11 @@ class kOmegaSSTPANS
 {
     // Private Member Functions
 
-        // Disallow default bitwise copy construct and assignment
-        kOmegaSSTPANS(const kOmegaSSTPANS&);
-        void operator=(const kOmegaSSTPANS&);
+        //- No copy construct
+        kOmegaSSTPANS(const kOmegaSSTPANS&) = delete;
+
+        //- No copy assignment
+        void operator=(const kOmegaSSTPANS&) = delete;
 
 
 protected:
@@ -131,18 +136,20 @@ protected:
         tmp<volScalarField> F3() const;
 
         void correctNut(const volScalarField& S2, const volScalarField& F2);
-    
+
     // Protected Member Functions
 
         virtual void correctNut();
 
         virtual tmp<fvScalarMatrix> kSource() const;
         virtual tmp<fvScalarMatrix> omegaSource() const;
+
+        //- PANS omega source
         virtual tmp<fvScalarMatrix> Qsas
         (
-            const volScalarField& S2,
-            const volScalarField& gamma,
-            const volScalarField& beta
+            const volScalarField::Internal& S2,
+            const volScalarField::Internal& gamma,
+            const volScalarField::Internal& beta
         ) const;
 
 
@@ -174,8 +181,7 @@ public:
 
 
     //- Destructor
-    virtual ~kOmegaSSTPANS()
-    {}
+    virtual ~kOmegaSSTPANS() = default;
 
 
     // Member Functions
@@ -186,7 +192,7 @@ public:
         //- Access function to filter width
         inline const volScalarField& delta() const
         {
-            return delta_();
+            return *delta_;
         }
 
         //- Return the effective diffusivity for unresolved k
@@ -224,7 +230,7 @@ public:
         //- Return the turbulence kinetic energy dissipation rate
         virtual tmp<volScalarField> epsilon() const
         {
-              return tmp<volScalarField>
+            return tmp<volScalarField>
             (
                 new volScalarField
                 (
@@ -263,7 +269,6 @@ public:
         virtual void correct();
 
 };
-
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

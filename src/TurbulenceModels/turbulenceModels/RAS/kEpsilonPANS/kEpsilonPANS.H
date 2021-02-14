@@ -2,8 +2,11 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2011-2015 OpenFOAM Foundation
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2011-2016 OpenFOAM Foundation
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -124,13 +127,15 @@ namespace RASModels
 template<class BasicTurbulenceModel>
 class kEpsilonPANS
 :
-    public eddyViscosity<RASModel<BasicTurbulenceModel> >
+    public eddyViscosity<RASModel<BasicTurbulenceModel>>
 {
     // Private Member Functions
 
-        // Disallow default bitwise copy construct and assignment
-        kEpsilonPANS(const kEpsilonPANS&);
-        kEpsilonPANS& operator=(const kEpsilonPANS&);
+        //- No copy construct
+        kEpsilonPANS(const kEpsilonPANS&) = delete;
+
+        //- No copy assignment
+        void operator=(const kEpsilonPANS&) = delete;
 
 
 protected:
@@ -197,8 +202,7 @@ public:
 
 
     //- Destructor
-    virtual ~kEpsilonPANS()
-    {}
+    virtual ~kEpsilonPANS() = default;
 
 
     // Member Functions
@@ -252,6 +256,21 @@ public:
             return epsilon_;
         }
 
+        //- Return the (estimated) specific dissipation rate
+        virtual tmp<volScalarField> omega() const
+        {
+            return tmp<volScalarField>::New
+            (
+                IOobject
+                (
+                    IOobject::groupName("omega", this->alphaRhoPhi_.group()),
+                    this->runTime_.timeName(),
+                    this->mesh_
+                ),
+                epsilon_/(Cmu_*k_)
+            );
+        }
+
         //- Return the unresolved turbulence kinetic energy
         virtual tmp<volScalarField> kU() const
         {
@@ -267,6 +286,7 @@ public:
         //- Solve the turbulence equations and correct the turbulence viscosity
         virtual void correct();
 };
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

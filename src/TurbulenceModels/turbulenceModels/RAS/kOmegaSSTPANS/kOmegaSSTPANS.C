@@ -2,8 +2,11 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2015 OpenFOAM Foundation
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2015-2017 OpenFOAM Foundation
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -147,9 +150,9 @@ tmp<fvScalarMatrix> kOmegaSSTPANS<BasicTurbulenceModel>::omegaSource() const
 template<class BasicTurbulenceModel>
 tmp<fvScalarMatrix> kOmegaSSTPANS<BasicTurbulenceModel>::Qsas
 (
-    const volScalarField& S2,
-    const volScalarField& gamma,
-    const volScalarField& beta
+    const volScalarField::Internal& S2,
+    const volScalarField::Internal& gamma,
+    const volScalarField::Internal& beta
 ) const
 {
     return tmp<fvScalarMatrix>
@@ -185,12 +188,13 @@ kOmegaSSTPANS<BasicTurbulenceModel>::kOmegaSSTPANS
         alphaRhoPhi,
         phi,
         transport,
-        propertiesName
+        propertiesName,
+        type
     ),
 
     fEpsilon_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "fEpsilon",
             this->coeffDict_,
@@ -199,7 +203,7 @@ kOmegaSSTPANS<BasicTurbulenceModel>::kOmegaSSTPANS
     ),
     uLim_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "fKupperLimit",
             this->coeffDict_,
@@ -208,7 +212,7 @@ kOmegaSSTPANS<BasicTurbulenceModel>::kOmegaSSTPANS
     ),
     loLim_
     (
-        dimensioned<scalar>::lookupOrAddToDict
+        dimensioned<scalar>::getOrAddToDict
         (
             "fKlowerLimit",
             this->coeffDict_,
@@ -220,7 +224,7 @@ kOmegaSSTPANS<BasicTurbulenceModel>::kOmegaSSTPANS
     (
         IOobject
         (
-            IOobject::groupName("fK", U.group()),
+            IOobject::groupName("fK", alphaRhoPhi.group()),
             this->runTime_.timeName(),
             this->mesh_,
             IOobject::NO_READ,
@@ -247,7 +251,7 @@ kOmegaSSTPANS<BasicTurbulenceModel>::kOmegaSSTPANS
     (
         LESdelta::New
         (
-            IOobject::groupName("delta", U.group()),
+            IOobject::groupName("delta", alphaRhoPhi.group()),
             *this,
             this->coeffDict_
         )
@@ -257,7 +261,7 @@ kOmegaSSTPANS<BasicTurbulenceModel>::kOmegaSSTPANS
     (
         IOobject
         (
-            IOobject::groupName("kU", U.group()),
+            IOobject::groupName("kU", alphaRhoPhi.group()),
             this->runTime_.timeName(),
             this->mesh_,
             IOobject::NO_READ,
@@ -271,7 +275,7 @@ kOmegaSSTPANS<BasicTurbulenceModel>::kOmegaSSTPANS
     (
         IOobject
         (
-            IOobject::groupName("omegaU", U.group()),
+            IOobject::groupName("omegaU", alphaRhoPhi.group()),
             this->runTime_.timeName(),
             this->mesh_,
             IOobject::NO_READ,
@@ -334,8 +338,8 @@ void kOmegaSSTPANS<BasicTurbulenceModel>::correct()
 
     tmp<volTensorField> tgradU = fvc::grad(U);
     volScalarField S2(2*magSqr(symm(tgradU())));
-    volScalarField GbyNu((tgradU() && dev(twoSymm(tgradU()))));
-    volScalarField G(this->GName(), nut*GbyNu);
+    volScalarField::Internal GbyNu((tgradU() && dev(twoSymm(tgradU()))));
+    volScalarField::Internal G(this->GName(), nut*GbyNu);
     tgradU.clear();
 
     // Update omegaU and G at the wall
@@ -351,9 +355,9 @@ void kOmegaSSTPANS<BasicTurbulenceModel>::correct()
     volScalarField F23(this->F23());
 
     {
-        volScalarField gamma(this->gamma(F1));
-        volScalarField beta(this->beta(F1));
-        volScalarField betaL
+        volScalarField::Internal gamma(this->gamma(F1));
+        volScalarField::Internal beta(this->beta(F1));
+        volScalarField::Internal betaL
         (
             gamma*this->betaStar_ - (gamma *this->betaStar_/fOmega_)
             + (beta/fOmega_)
@@ -371,10 +375,10 @@ void kOmegaSSTPANS<BasicTurbulenceModel>::correct()
            *min
             (
                 GbyNu,
-                (this->c1_/this->a1_)*this->betaStar_*omegaU_
-                *max(this->a1_*omegaU_, this->b1_*F23*sqrt(S2))
+		(this->c1_/this->a1_)*this->betaStar_*omegaU_()
+                *max(this->a1_*omegaU_(), this->b1_*F23()*sqrt(S2()))
             )
-          - fvm::SuSp((2.0/3.0)*alpha*rho*gamma*divU, omegaU_)
+          - fvm::SuSp((2.0/3.0)*alpha()*rho()*gamma*divU, omegaU_)
           - fvm::Sp(alpha*rho*betaL*omegaU_, omegaU_)
           - fvm::SuSp
             (
@@ -401,7 +405,7 @@ void kOmegaSSTPANS<BasicTurbulenceModel>::correct()
       + fvm::div(alphaRhoPhi, kU_)
       - fvm::laplacian(alpha*rho*DkUEff(F1), kU_)
      ==
-        min(alpha*rho*G, (this->c1_*this->betaStar_)*alpha*rho*kU_*omegaU_)
+        min(alpha*rho*G, (this->c1_*this->betaStar_)*alpha()*rho()*kU_()*omegaU_())
       - fvm::SuSp((2.0/3.0)*alpha*rho*divU, kU_)
       - fvm::Sp(alpha*rho*this->betaStar_*omegaU_, kU_)
       + kSource()
